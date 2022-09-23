@@ -22,7 +22,7 @@ variable "gcs-region" {
   default = "ASIA"
   description = "Google Cloud Storage Location Region"
 }
-variable "gcp_network" {
+variable "gcp-network" {
   type = string
   default = "default"
   description = "Netowrk for running VMs"
@@ -52,7 +52,7 @@ variable expiry {
   type = string
   description = "YYY-MM-DDTHH:mm:ssZ formatted timestamp"
 }
-variable "dns_zone" {
+variable "dns-zone" {
   type = string
   description = "Hosted DNS Zone for Workshop"
 }
@@ -63,7 +63,12 @@ variable "domain" {
 }
 
 
-variable "cert_email" {
+variable "cert-email" {
   type = string
   description = "Email for generating Lets Encrypt certificate"
+}
+
+variable license-file {
+  type = string
+  description = "License file absolute path"
 }
