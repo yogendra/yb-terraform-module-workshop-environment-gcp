@@ -1,7 +1,7 @@
-# Partner Workshop Environment Creation
+# Yugabyte Partner Workshop Environment Creation - GCP
 
-## GCP
-Create a terraform file with
+Create a terraform file with following content
+
 ```hcl
 module "workshop" {
   source = "github.com/yogendra/yb-partner-workshop-gcp"
@@ -14,7 +14,7 @@ module "workshop" {
     "instructor1@org3.com","instructor2@org3.com"
   ]
   prefix = "ws01"
-  duration = 1l
+  duration = 1
   expiry = "2022-09-23T00:00:00Z"
 }
 
@@ -23,3 +23,6 @@ output "instructions" {
 }
 
 ```
+
+`participant` - a map of org name (dns naming compatible, lowercase, number and hyphens only) and participant email list. They can access machine only assigned to them.
+`instructor` - list of emails for instructors. They have access to all the Machines for workshop

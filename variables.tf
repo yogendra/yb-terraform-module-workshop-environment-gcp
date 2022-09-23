@@ -52,8 +52,3 @@ variable expiry {
   type = string
   description = "YYY-MM-DDTHH:mm:ssZ formatted timestamp"
 }
-variable duration {
-  type = number
-  default = 3
-  description = "Number of days to keep access"
-}
