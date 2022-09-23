@@ -52,3 +52,18 @@ variable expiry {
   type = string
   description = "YYY-MM-DDTHH:mm:ssZ formatted timestamp"
 }
+variable "dns_zone" {
+  type = string
+  description = "Hosted DNS Zone for Workshop"
+}
+
+variable "domain" {
+  type = string
+  description = "Root domain for workshop"
+}
+
+
+variable "cert_email" {
+  type = string
+  description = "Email for generating Lets Encrypt certificate"
+}

@@ -20,6 +20,8 @@ Administrator - Creator of workshop environment
 1. Google cloud project
 2. Terraform
 3. google-cloud-sdk
+4. Domain with Hosted Zone on GCP (Get free domain at [freenom](https://freenom.com))
+5. Verified domain with google
 
 Instructors - Conductors of workshop
 

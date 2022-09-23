@@ -2,10 +2,24 @@
 # Create a key for the service account
 # Add each partner emails to project
 # For each env - create a portal VM
+terraform {
+  required_providers {
+    acme = {
+      source  = "vancluever/acme"
+      version = "~> 2.0"
+    }
+  }
+}
+
 
 provider "google" {
   project     = var.gcp-project-id
   region      = var.gcp-region
+}
+provider "acme" {
+  server_url = "https://acme-v02.api.letsencrypt.org/directory"
+  # server_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
+
 }
 
 locals {
@@ -45,6 +59,11 @@ data "google_compute_image" "vm_image" {
   project  = "ubuntu-os-cloud"
   family = "ubuntu-2004-lts"
 }
+
+data "google_dns_managed_zone" "workshop-dns-zone" {
+  name = var.dns_zone
+}
+
 
 
 resource "google_project_iam_custom_role" "attendees-project-role" {
@@ -151,6 +170,14 @@ resource "google_compute_instance" "yugaware" {
   }
 }
 
+resource "google_dns_record_set" "yugaware-dns" {
+  for_each =  var.participants
+  name = "yugaware-${each.key}.${var.domain}."
+  type = "A"
+  ttl  = 300
+  managed_zone = var.dns_zone
+  rrdatas = [ google_compute_instance.yugaware[each.key].network_interface.0.access_config.0.nat_ip]
+}
 
 
 resource "google_compute_instance_iam_binding" "instance-iam-binding-login" {
@@ -241,6 +268,15 @@ resource "google_compute_instance" "instructor-yugaware" {
     scopes = ["cloud-platform"]
   }
 }
+resource "google_dns_record_set" "instructor-yugaware-dns" {
+
+  name = "yugaware-instructor.${var.domain}."
+  type = "A"
+  ttl  = 300
+  managed_zone = var.dns_zone
+  rrdatas = [ google_compute_instance.instructor-yugaware.network_interface.0.access_config.0.nat_ip]
+}
+
 
 
 
@@ -289,3 +325,150 @@ resource "google_storage_bucket_iam_binding" "instructors-backup-bucket-access" 
   }
 }
 
+
+resource "tls_private_key" "private_key" {
+  algorithm = "RSA"
+}
+
+resource "acme_registration" "reg" {
+  account_key_pem = "${tls_private_key.private_key.private_key_pem}"
+  email_address   = var.cert_email
+}
+
+resource "acme_certificate" "certificate" {
+  account_key_pem           = "${acme_registration.reg.account_key_pem}"
+  common_name               = var.domain
+  subject_alternative_names = ["*.${var.domain}"]
+
+  dns_challenge {
+    provider = "gcloud"
+    config = {
+      GCE_PROJECT = var.gcp-project-id
+    }
+  }
+}
+resource "local_file" "certificate-key" {
+    content     = acme_certificate.certificate.private_key_pem
+    filename = "${path.cwd}/${var.prefix}-certificate-private-key.pem"
+}
+resource "local_file" "certificate" {
+    content     = "${acme_certificate.certificate.certificate_pem}"
+    filename = "${path.cwd}/${var.prefix}-certificate.pem"
+}
+
+resource "local_file" "full-certificate" {
+    content     = "${acme_certificate.certificate.certificate_pem}${acme_certificate.certificate.issuer_pem}"
+    filename = "${path.cwd}/${var.prefix}-full-certificate.pem"
+}
+
+resource "local_file" "issuer-certificate" {
+    content     = "${acme_certificate.certificate.issuer_pem}"
+    filename = "${path.cwd}/${var.prefix}-issuer-certificate.pem"
+}
+
+
+resource "google_dns_record_set" "workshop-homepage" {
+  name = "${var.domain}."
+  type = "CNAME"
+  ttl  = 300
+  managed_zone = var.dns_zone
+  rrdatas = [ "c.storage.googleapis.com."]
+}
+
+
+resource "google_storage_bucket" "workshop-homepage" {
+  name = var.domain
+  location = var.gcs-region
+  force_destroy = true
+  uniform_bucket_level_access = false
+
+  website {
+    main_page_suffix = "index.html"
+    not_found_page   = "404.html"
+  }
+  cors {
+    origin          = ["http://${var.domain}"]
+    method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+    response_header = ["*"]
+    max_age_seconds = 3600
+  }
+}
+
+resource "google_storage_bucket_access_control" "public_rule" {
+  bucket = google_storage_bucket.workshop-homepage.name
+  role   = "READER"
+  entity = "allAuthenticatedUsers"
+}
+
+locals{
+  instructions = <<EOT
+Instruction:
+============
+- Instructors can connect to any VM
+- Participants can only connect to their own VM
+- Firewall ports have been opened for accessing all known services
+- VM for YugabyteDB Anywhere is already created
+- Bucket for Backup / Restor is already created
+- Service account is already created and its JSON key will be provided by instructors
+- License file (.rli) will be provided by instructors
+- Download and install the 'gcloud' command line on your workstation (recommended) or use cloud shell on google console.
+- Install gcloud Command: https://cloud.google.com/sdk/docs/install
+- Yugaware installation instructions are at : https://docs.yugabyte.com/preview/yugabyte-platform/install-yugabyte-platform/prepare-environment/gcp/
+
+Network: default
+Subnet Map:
+ap-southeast1-a = default
+ap-southeast1-b = default
+ap-southeast1-c = default
+
+Files:
+======
+- Service Account Key: ${basename(local_file.yugabyte-sa-key.filename)}
+- DNS Certificate:
+    Private Key: ${basename(local_file.certificate-key.filename)}
+    Certificate (Full): ${basename(local_file.full-certificate.filename)}
+    Certificate : ${basename(local_file.certificate.filename)}
+    Issuer Certificate : ${basename(local_file.issuer-certificate.filename)}
+Instructors:
+============
+%{ for email in var.instructors }- ${email}
+%{ endfor}
+
+VM: ${google_compute_instance.instructor-yugaware.name}
+Bucket: ${google_storage_bucket.instructor-backup-bucket.name}
+SSH Command: gcloud compute ssh ${google_compute_instance.instructor-yugaware.name} --project ${var.gcp-project-id} --zone ${var.primary-zone} --tunnel-through-iap
+FQDN: yugaware.instructor.${var.domain}
+Portal: http://yugaware-instructor.${var.domain}/
+Replicated: http://yugaware-instructor.${var.domain}:8800
+
+Participant & Their VMs:
+========================
+
+%{ for org, emails in var.participants }
+  Organization: ${org}
+  VM: ${google_compute_instance.yugaware[org].name}
+  Bucket: ${google_storage_bucket.backup-bucket[org].name}
+  Email: ${join(",", emails)}
+  SSH Command: gcloud compute ssh ${google_compute_instance.yugaware[org].name} --project ${var.gcp-project-id} --zone ${var.primary-zone} --tunnel-through-iap
+  FQDN: yugaware.instructor.${var.domain}
+  Portal: http://yugaware-${org}.${var.domain}/
+  Replicated: http://yugaware-${org}.${var.domain}:8800/
+
+%{ endfor}
+
+
+All Attendees Email: ${join(", ", local.attendees-email-list)}
+EOT
+}
+
+resource "local_file" "workshop-homepage" {
+    content     = "<html><head><title>Yugabyte Workshop ${var.prefix}</title><body><pre>${local.instructions}</pre></html>"
+    filename = "${path.cwd}/index.html"
+}
+
+
+resource "google_storage_bucket_object" "workshop-homepage" {
+  name   = "index.html"
+  source = local_file.workshop-homepage.filename
+  bucket = google_storage_bucket.workshop-homepage.name
+}
