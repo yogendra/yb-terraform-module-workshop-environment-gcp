@@ -17,6 +17,7 @@ locals {
     "dbalbastro@msi-ecs.com.ph"
   ]
   duration = 1
+  expiry = "2022-09-22T16:00:00Z"
 }
 
 module "workshop" {
@@ -25,6 +26,7 @@ module "workshop" {
   participants = local.participants
   instructors = local.instructors
   prefix = local.prefix
+  expiry = local.expiry
 }
 
 output "info" {

@@ -47,10 +47,11 @@ variable "instructors" {
   type = list(string)
   description = "Email address of instructors/facilitators"
 }
-# variable "hosted-zone-id"{
-#   type = string
-#   de
-# }
+
+variable expiry {
+  type = string
+  description = "YYY-MM-DDTHH:mm:ssZ formatted timestamp"
+}
 variable duration {
   type = number
   default = 3

@@ -29,10 +29,20 @@ Instruction:
 - Install gcloud Command: https://cloud.google.com/sdk/docs/install
 - Yugaware installation instructions are at : https://docs.yugabyte.com/preview/yugabyte-platform/install-yugabyte-platform/prepare-environment/gcp/
 
+Network: default
+Subnet Map:
+ap-southeast1-a = default
+ap-southeast1-b = default
+ap-southeast1-c = default
+
 Instructors:
 ============
 %{ for email in var.instructors }- ${email}
 %{ endfor}
+
+VM: ${google_compute_instance.instructor-yugaware.name}
+Bucket: ${google_storage_bucket.instructor-backup-bucket.name}
+SSH Command: gcloud compute ssh ${google_compute_instance.instructor-yugaware.name} --project ${var.gcp-project-id} --zone ${var.primary-zone} --tunnel-through-iap
 
 Participant & Their VMs:
 ========================

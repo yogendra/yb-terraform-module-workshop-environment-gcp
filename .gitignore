@@ -1,6 +1,8 @@
-**/*secret*
-**/.terraform
+*secret*
+.terraform
 terraform.tfstate.backup
 terraform.tfstate
 .terraform.lock.hcl
 *.tfvars
+*.rli
+.terraform.tfstate.lock.info
