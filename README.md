@@ -13,7 +13,6 @@ This is a terraform module for creating workshop environment. Main intension is 
 9. Demonstrate node failure
 10. Demonstrate scaling
 
-
 ## Pre-requisites
 
 Administrator - Creator of workshop environment
@@ -36,11 +35,11 @@ Instructors - Conductors of workshop
 Participants
 
 1. Google account (Emails provided should be of a valid Google account. )
-1. (highly recommended) Workstation with working `gcloud`
-2. Browser
-3. DBeaver or any other Postgres compatible SQL Tool
-4. Putty (recommended)
-5. Java (17 or higher)
+2. (highly recommended) Workstation with working `gcloud`
+3. Browser
+4. DBeaver or any other Postgres compatible SQL Tool
+5. Putty (recommended)
+6. Java (17 or higher)
 
 ## Quick Start
 
@@ -69,6 +68,16 @@ output "instructions" {
 
 `participant` - a map of org name (dns naming compatible, lowercase, number and hyphens only) and participant email list. They can access machine only assigned to them.
 `instructor` - list of emails for instructors. They have access to all the Machines for workshop
+
+## Important: Refresh Terraform during Workshop
+
+In case you need to add more participants or make any change, please refresh the state first before making the change and applying.
+Mainly the ssh keys get added to machines' metadata for users and you don't want to wipe them out
+
+```bash
+# Refresh state
+terraform apply -refresh-only -auto-approve
+```
 
 This will output set of instructions that you can email to instructors and participants
 
