@@ -1,10 +1,10 @@
-# Yugabyte Partner Workshop Environment Creation - GCP
+# Yugabyte Workshop Environment Creation - GCP
 
 Create a terraform file with following content
 
 ```hcl
 module "workshop" {
-  source = "github.com/yogendra/yb-partner-workshop-gcp"
+  source = "github.com/yogendra/yb-terraform-module-workshop-environment-gcp"
   gcp-project-id = "project-id"
   participants = [
     org1 = [ "participant1@org1.com","participant2@org1.com" ]
