@@ -66,8 +66,8 @@ output "instructions" {
 
 ```
 
-`participant` - a map of org name (dns naming compatible, lowercase, number and hyphens only) and participant email list. They can access machine only assigned to them.
-`instructor` - list of emails for instructors. They have access to all the Machines for workshop
+- `participant` - a map of org name (dns naming compatible, lowercase, number and hyphens only) and participant email list. They can access machine only assigned to them.
+- `instructor` - list of emails for instructors. They have access to all the Machines for workshop
 
 ## Important: Refresh Terraform during Workshop
 
