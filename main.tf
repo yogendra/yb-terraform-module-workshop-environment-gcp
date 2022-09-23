@@ -98,6 +98,20 @@ resource "google_compute_firewall" "allow-access" {
 }
 
 
+resource "google_compute_firewall" "allow-access-from-iap" {
+  name    = "${var.prefix}-workshop-iap"
+  network = var.gcp_network
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22","3389"]
+  }
+
+  target_tags = ["yugaware","cluster-server"]
+  source_ranges = ["35.235.240.0/20"]
+}
+
+
 resource "google_compute_instance" "yugaware" {
   for_each = var.participants
   name         = "${var.prefix}-${each.key}-yugaware"
