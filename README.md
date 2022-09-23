@@ -26,9 +26,16 @@ Instructors - Conductors of workshop
 
 1. Yugabyte Trial License
 2. Zoom Session (Required if conducting online)
+3. Google account (Emails provided should be of a valid Google account. )
+4. (highly recommended) Workstation with working `gcloud`
+5. Browser
+6. DBeaver or any other Postgres compatible SQL Tool
+7. Putty (recommended)
+8. Java (17 or higher)
 
 Participants
 
+1. Google account (Emails provided should be of a valid Google account. )
 1. (highly recommended) Workstation with working `gcloud`
 2. Browser
 3. DBeaver or any other Postgres compatible SQL Tool
