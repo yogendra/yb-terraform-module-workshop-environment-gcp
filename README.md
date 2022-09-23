@@ -1,6 +1,6 @@
 # Yugabyte Workshop Environment Creation - GCP
 
-This is a terraform module for creating workshop environment. Main intension is to provide environment for hand-on practice for:
+This is a terraform module for creating workshop environment. Main intention is to provide environments for hand-on practice for:
 
 1. Deploy Replicated on VM on GCP
 2. Configure Google Cloud provider (use service account credential type)
@@ -12,6 +12,21 @@ This is a terraform module for creating workshop environment. Main intension is 
 8. Run sample application
 9. Demonstrate node failure
 10. Demonstrate scaling
+
+This module will:
+
+1. Add participants to project
+2. Add instructors to project
+3. Create Portal VM for each group/org and instructors
+4. Grant access permissions to group members to their own group's Portal VM
+5. Grant access to instructors to all Portal VMs
+6. Create DNS record Portal VMs
+7. Create Lets Encrypt certificate to use with the portals
+8. Create Backup buckets
+9. Create service account with access to compute and backup buckets
+10. Create key for service account
+11. Create a Landing page for workshop attendees to get License, certs, VM info etc.
+12. Setup access expiry for participants
 
 ## Pre-requisites
 
@@ -60,10 +75,15 @@ module "workshop" {
   ]
   prefix = "ws01"
   expiry = "2022-09-23T00:00:00Z"
+  domain = "workshops.example.com"
+  dns-zone = "hosted-dns-zone-name"
+  cert-email = "mymail@myorg.com"
+  license-file = "/path/to/license-file.rli"
+
 }
 
 output "instructions" {
-  value = module.workshop.instructions
+  value = module.workshop.instructions-url
 }
 
 ```
