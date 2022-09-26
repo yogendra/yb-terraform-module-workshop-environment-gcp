@@ -38,7 +38,10 @@ locals {
   http_cert_issuer_filename = "${var.prefix}-http-cert-issuer.pem"
   cloud_sa_key_filename = "${var.prefix}-yugabyte-sa-key.secret.json"
   license_filename = "${var.prefix}-license.rli"
-  workshop_homepage = "https://${var.domain}/index.html"
+
+  workshop_instruction_bucket = "${var.prefix}-workshop-instruction"
+  workshop_home = "https://storage.cloud.google.com/${local.workshop_instruction_bucket}"
+  workshop_homepage = "${local.workshop_home}/index.html"
 }
 
 
@@ -336,6 +339,96 @@ resource "google_storage_bucket_iam_binding" "instructors-backup-bucket-access" 
   }
 }
 
+
+
+resource "tls_private_key" "private_key" {
+  algorithm = "RSA"
+}
+
+resource "acme_registration" "reg" {
+  account_key_pem = "${tls_private_key.private_key.private_key_pem}"
+  email_address   = var.cert-email
+}
+
+resource "acme_certificate" "certificate" {
+  account_key_pem           = "${acme_registration.reg.account_key_pem}"
+  common_name               = var.domain
+  subject_alternative_names = ["*.${var.domain}"]
+
+  dns_challenge {
+    provider = "gcloud"
+    config = {
+      GCE_PROJECT = var.gcp-project-id
+    }
+  }
+}
+
+
+resource "google_storage_bucket" "workshop-site" {
+  name = local.workshop_instruction_bucket
+  location = var.gcs-region
+  force_destroy = true
+  uniform_bucket_level_access = true
+
+
+  # website {
+  #   main_page_suffix = "index.html"
+  #   not_found_page   = "404.html"
+  # }
+  # cors {
+  #   origin          = ["*"]
+  #   method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+  #   response_header = ["*"]
+  #   max_age_seconds = 3600
+  # }
+}
+
+
+resource "google_storage_bucket_object" "license-file" {
+  name   = local.license_filename
+  content_type = "application/octet-stream"
+  source = var.license-file
+  bucket = google_storage_bucket.workshop-site.name
+}
+
+resource "google_storage_bucket_object" "sa-key" {
+  name   = local.cloud_sa_key_filename
+  content_type = "application/octet-stream"
+  content = base64decode(google_service_account_key.yugabyte-sa-key.private_key)
+  bucket = google_storage_bucket.workshop-site.name
+}
+
+
+resource "google_storage_bucket_object" "http-cert" {
+  name   = local.http_cert_filename
+  content_type = "application/octet-stream"
+  content = acme_certificate.certificate.certificate_pem
+  bucket = google_storage_bucket.workshop-site.name
+}
+resource "google_storage_bucket_object" "http-cert-full" {
+  name   = local.http_cert_full_filename
+  content_type = "application/octet-stream"
+  content     = "${acme_certificate.certificate.certificate_pem}${acme_certificate.certificate.issuer_pem}"
+  bucket = google_storage_bucket.workshop-site.name
+}
+
+
+resource "google_storage_bucket_object" "http-cert-key" {
+  name   = local.http_cert_key_filename
+  content_type = "application/octet-stream"
+  content     = acme_certificate.certificate.private_key_pem
+  bucket = google_storage_bucket.workshop-site.name
+}
+
+resource "google_storage_bucket_object" "http-cert-issuer" {
+  name   = local.http_cert_issuer_filename
+  content_type = "application/octet-stream"
+  content     = acme_certificate.certificate.issuer_pem
+  bucket = google_storage_bucket.workshop-site.name
+}
+
+
+
 locals{
   instructions_html = <<EOT
   <!document html>
@@ -408,10 +501,15 @@ locals{
 
       <ul>
         <li>
-          <a href="${local.license_filename}">License File</a>
+          <a href="${local.workshop_home}/${local.license_filename}">License File</a>
         </li>
         <li>
-          <a href="https://console.cloud.google.com/iam-admin/serviceaccounts/details/${google_service_account.yugabyte-sa.unique_id}/keys?project=${var.gcp-project-id}">Service Account Key (Cllicke to Go To Console and Create) </a>
+          <details>
+            <summary>
+              <a href="${local.workshop_home}/${local.cloud_sa_key_filename}">Service Account Key</a>
+            </summary>
+            <pre>${base64decode(google_service_account_key.yugabyte-sa-key.private_key)}</pre>
+          </details>
         </li>
         <li>
           HTTPS Certificate
@@ -419,7 +517,7 @@ locals{
             <li>
               <details>
                 <summary>
-                  <a href="${local.http_cert_key_filename}">Private Key</a>
+                  <a href="${local.workshop_home}/${local.http_cert_key_filename}">Private Key</a>
                 </summary>
                 <pre>${acme_certificate.certificate.private_key_pem}</pre>
               </details>
@@ -427,7 +525,7 @@ locals{
             <li>
               <details>
                 <summary>
-                  <a href="${local.http_cert_full_filename}">Certificate (Full)</a>
+                  <a href="${local.workshop_home}/${local.http_cert_full_filename}">Certificate (Full)</a>
                 </summary>
                 <pre>${acme_certificate.certificate.certificate_pem}${acme_certificate.certificate.issuer_pem}</pre>
               </details>
@@ -435,7 +533,7 @@ locals{
             <li>
               <details>
                 <summary>
-                  <a href="${local.http_cert_filename}">Certificate </a>
+                  <a href="${local.workshop_home}/${local.http_cert_filename}">Certificate </a>
                 </summary>
                 <pre>${acme_certificate.certificate.certificate_pem}</pre>
               </details>
@@ -443,7 +541,7 @@ locals{
             <li>
               <details>
                 <summary>
-                  <a href="${local.http_cert_issuer_filename}">Issuer Certificate </a>
+                  <a href="${local.workshop_home}/${local.http_cert_issuer_filename}">Issuer Certificate </a>
                 </summary>
                 <pre>${acme_certificate.certificate.issuer_pem}</pre>
               </details>
@@ -538,112 +636,9 @@ locals{
 EOT
 }
 
-
-resource "tls_private_key" "private_key" {
-  algorithm = "RSA"
-}
-
-resource "acme_registration" "reg" {
-  account_key_pem = "${tls_private_key.private_key.private_key_pem}"
-  email_address   = var.cert-email
-}
-
-resource "acme_certificate" "certificate" {
-  account_key_pem           = "${acme_registration.reg.account_key_pem}"
-  common_name               = var.domain
-  subject_alternative_names = ["*.${var.domain}"]
-
-  dns_challenge {
-    provider = "gcloud"
-    config = {
-      GCE_PROJECT = var.gcp-project-id
-    }
-  }
-}
-
-
-resource "google_storage_bucket" "workshop-site" {
-  name = var.domain
-  location = var.gcs-region
-  force_destroy = true
-  uniform_bucket_level_access = false
-
-
-  website {
-    main_page_suffix = "index.html"
-    not_found_page   = "404.html"
-  }
-  cors {
-    origin          = ["*"]
-    method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
-    response_header = ["*"]
-    max_age_seconds = 3600
-  }
-}
-
-resource "google_storage_bucket_acl" "workshop-site-access" {
-  bucket = google_storage_bucket.workshop-site.name
-  role_entity = [
-    # "OWNER:project-owners-${var.gcp-project-id}",
-    "READER:allAuthenticatedUsers"
-  ]
-}
-
-resource "google_storage_default_object_acl" "workshop-site-file-access" {
-  bucket = google_storage_bucket.workshop-site.name
-  role_entity = [
-    "OWNER:project-owners-${var.gcp-project-id}",
-    "READER:allAuthenticatedUsers"
-  ]
-}
-
-resource "google_dns_record_set" "workshop-site" {
-  name = "${var.domain}."
-  type = "CNAME"
-  ttl  = 300
-  managed_zone = var.dns-zone
-  rrdatas = [ "c.storage.googleapis.com."]
-}
-
-
-resource "google_storage_bucket_object" "license-file" {
-  name   = local.license_filename
-  content_type = "application/octet-stream"
-  source = var.license-file
-  bucket = google_storage_bucket.workshop-site.name
-}
-
 resource "google_storage_bucket_object" "homepage" {
   name   = "index.html"
   content_type = "text/html"
   content = local.instructions_html
-  bucket = google_storage_bucket.workshop-site.name
-}
-
-resource "google_storage_bucket_object" "http-cert" {
-  name   = local.http_cert_filename
-  content_type = "text/plain"
-  content = acme_certificate.certificate.certificate_pem
-  bucket = google_storage_bucket.workshop-site.name
-}
-resource "google_storage_bucket_object" "http-cert-full" {
-  name   = local.http_cert_full_filename
-  content_type = "text/plain"
-  content     = "${acme_certificate.certificate.certificate_pem}${acme_certificate.certificate.issuer_pem}"
-  bucket = google_storage_bucket.workshop-site.name
-}
-
-
-resource "google_storage_bucket_object" "http-cert-key" {
-  name   = local.http_cert_key_filename
-  content_type = "text/plain"
-  content     = acme_certificate.certificate.private_key_pem
-  bucket = google_storage_bucket.workshop-site.name
-}
-
-resource "google_storage_bucket_object" "http-cert-issuer" {
-  name   = local.http_cert_issuer_filename
-  content_type = "text/plain"
-  content     = acme_certificate.certificate.issuer_pem
   bucket = google_storage_bucket.workshop-site.name
 }
